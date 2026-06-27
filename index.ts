@@ -21,20 +21,20 @@ const PLACEHOLDER = "[REDACTED]";
 // ---------------------------------------------------------------------------
 const SECRET_PATTERNS: RegExp[] = [
 	// AWS access key id (AKIA + 16 uppercase alnum)
-	/AKIA[0-9A-Z]{16}/g,
+	/AKIA[0-9A-Z]{16}/g, // pragma: allowlist secret
 	// OpenAI key (sk- + 20+ alnum)
-	/sk-[A-Za-z0-9]{20,}/g,
-	// GitHub PAT / OAuth token (ghp_ / gho_ + 36 alnum)
-	/gh[op]_[A-Za-z0-9]{36,}/g,
+	/sk-[A-Za-z0-9]{20,}/g, // pragma: allowlist secret
+	// GitHub token (gh[oprsuca]_ + 36+ alnum): PAT, OAuth, SAML, runner, user-server, cogliot, app
+	/gh[oprsuca]_[A-Za-z0-9]{36,}/g,
 	// Slack token (xox[baprs]- + 10+ alnum/-)
 	/xox[baprs]-[0-9a-zA-Z-]{10,}/g,
 	// JWT (three base64url segments, each 10+, dot-separated, starts eyJ)
 	/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
-	// Bearer token (Bearer + 20+ token chars)
-	/Bearer\s+[A-Za-z0-9._-]{20,}/g,
+	// Bearer token (Bearer + 20+ token chars, anchored to avoid URL/path false positives)
+	/\bBearer\s+[A-Za-z0-9._-]{20,}\b/g,
 	// password / passwd assignment — keep var name, replace value.
-	// group 1 = "name=" prefix (incl. optional quote), group 2 = value (6+ non-space/quote)
-	/(\b\w*(?:password|passwd)\w*\s*[=:]\s*["']?)([^\s"']{6,})/gi,
+	// group 1 = "name=" prefix (incl. optional quote), group 2 = value (6+, stops at space/quote/semicolon)
+	/(\b\w*(?:password|passwd)\w*\s*[=:]\s*["']?)([^;\s"']{6,})/gi,
 	// Multi-line PEM private key block (BEGIN..END, non-greedy, requires END)
 	/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END[A-Z ]*PRIVATE KEY-----/g, // pragma: allowlist secret
 ];
@@ -47,7 +47,7 @@ const SECRET_PATTERNS: RegExp[] = [
 // markers. Scanning 1MB against 8 regexes is ~100ms; this single indexOf
 // sweep is ~1ms and short-circuits the common (no-secret) case.
 const MARKERS = [
-	"AKIA", "sk-", "ghp_", "gho_", "xox", "eyJ", "Bearer",
+	"AKIA", "sk-", "ghp_", "gho_", "ghs_", "ghr_", "ghu_", "ghc_", "gha_", "xox", "eyJ", "Bearer",
 	"password", "passwd", "PASSWORD", "PASSWD",
 	"BEGIN PRIVATE KEY", "BEGIN RSA PRIVATE KEY", "BEGIN EC PRIVATE KEY", // pragma: allowlist secret
 	"BEGIN OPENSSH PRIVATE KEY", "BEGIN PGP PRIVATE KEY", // pragma: allowlist secret

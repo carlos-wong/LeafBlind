@@ -163,3 +163,67 @@ describe("boundary / edge cases", () => {
 		assert.equal(redact("plain"), "plain");
 	});
 });
+
+describe("REQ-001 GitHub token expanded prefixes (7/7)", () => {
+	test("ghs_ token redacted", () => {
+		const s = "ghs_fakefakefakefakefakefakefakefakefakefakefake"; // 36 fictional  # pragma: allowlist secret
+		assert.equal(redact(s), R);
+	});
+	test("ghr_ token redacted", () => {
+		const s = "ghr_fakefakefakefakefakefakefakefakefakefakefake"; // pragma: allowlist secret
+		assert.equal(redact(s), R);
+	});
+	test("ghu_ token redacted", () => {
+		const s = "ghu_fakefakefakefakefakefakefakefakefakefakefake"; // pragma: allowlist secret
+		assert.equal(redact(s), R);
+	});
+	test("ghc_ token redacted", () => {
+		const s = "ghc_fakefakefakefakefakefakefakefakefakefakefake"; // pragma: allowlist secret
+		assert.equal(redact(s), R);
+	});
+	test("gha_ token redacted", () => {
+		const s = "gha_fakefakefakefakefakefakefakefakefakefakefake"; // pragma: allowlist secret
+		assert.equal(redact(s), R);
+	});
+	test("ghs_ with <36 not matched", () => {
+		assert.equal(redact("ghs_short"), "ghs_short");
+	});
+	test("gha_ with <36 not matched", () => {
+		assert.equal(redact("gha_tooshortvalue"), "gha_tooshortvalue");
+	});
+});
+
+describe("REQ-002 password semicolon preserved", () => {
+	test("password=abcdef; keeps semicolon", () => {
+		const s = "password=abcdef;";
+		const out = redact(s);
+		assert.equal(out, `password=${R};`);
+		assert.ok(out.endsWith(";"), "semicolon preserved after placeholder");
+	});
+	test("passwd=value; keeps semicolon", () => {
+		const s = "passwd=testval;";
+		const out = redact(s);
+		assert.equal(out, `passwd=${R};`);
+	});
+	test("password= (empty value) not matched", () => {
+		assert.equal(redact("password="), "password=");
+	});
+	test('password="abcdef"; keeps semicolon outside quote', () => {
+		const s = 'password="abcdef";';
+		const out = redact(s);
+		assert.equal(out, `password="${R}";`);
+	});
+});
+
+describe("REQ-003 Bearer token anchored", () => {
+	test("prefixBearer ... should not match", () => {
+		const s = "prefixBearer fakefakefakefakefakefakefake0000";
+		assert.equal(redact(s), s, "Bearer inside a word must not trigger");
+	});
+	test("Authorization: Bearer ... still matched", () => {
+		const s = "Authorization: Bearer fakefakefakefakefakefakefake0000";
+		const out = redact(s);
+		assert.ok(out.includes(R), "standard header still redacted");
+		assert.ok(!out.includes("fakefake"), "value gone");
+	});
+});

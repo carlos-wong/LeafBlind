@@ -28,11 +28,11 @@ pi-agent 扩展：在所有 LLM API 请求发出前，用正则擦除 access tok
 |------|------|
 | AWS access key | `AKIA[0-9A-Z]{16}` |
 | OpenAI key | `sk-[A-Za-z0-9]{20,}` | <!-- pragma: allowlist secret -->
-| GitHub token | `gh[op]_[A-Za-z0-9]{36,}` | <!-- pragma: allowlist secret -->
+| GitHub token | `gh[oprsuca]_[A-Za-z0-9]{36,}` | <!-- pragma: allowlist secret -->
 | Slack token | `xox[baprs]-[0-9a-zA-Z-]{10,}` | <!-- pragma: allowlist secret -->
 | JWT | `eyJ...三段` | <!-- pragma: allowlist secret -->
-| Bearer token | `Bearer\s+[A-Za-z0-9._-]{20,}` | <!-- pragma: allowlist secret -->
-| password 赋值 | 保留变量名，替换值 |
+| Bearer token | `\bBearer\s+[A-Za-z0-9._-]{20,}\b` | <!-- pragma: allowlist secret -->
+| password 赋值 | 保留变量名前缀和分号等分隔符，值 ≤5 字符不命中 |
 | PEM 私钥块 | `-----BEGIN ... PRIVATE KEY----- ... -----END...` |
 
 ## 性能
@@ -45,4 +45,4 @@ pi-agent 扩展：在所有 LLM API 请求发出前，用正则擦除 access tok
 node --experimental-strip-types --test zz-secret-filter.test.mjs
 ```
 
-27 条用例，全部使用纯虚构占位值（fake/test 标记），无真实 secret。
+40 条用例，全部使用纯虚构占位值（fake/test 标记），无真实 secret。
