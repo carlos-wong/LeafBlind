@@ -128,6 +128,14 @@ export default function (pi: ExtensionAPI): void {
 	pi.on("context", async (event) => {
 		if (!Array.isArray(event.messages)) return;
 		const messages = event.messages.map((m: any) => redactMessage(m));
+		// Debug log to stderr: what the LLM actually receives
+		{
+			const last = messages[messages.length - 1];
+			const txt = typeof last?.content === "string" ? last.content
+				: Array.isArray(last?.content) ? last.content.map((b: any) => b.text ?? "").join("")
+				: JSON.stringify(last);
+			console.error("[zz-secret-filter] last message (post-redact):", txt.slice(0, 300));
+		}
 		return { messages };
 	});
 }
