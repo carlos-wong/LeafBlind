@@ -227,3 +227,43 @@ describe("REQ-003 Bearer token anchored", () => {
 		assert.ok(!out.includes("fakefake"), "value gone");
 	});
 });
+
+describe("e2e: experiment prompts (pi -p -e ...)", () => {
+	// These are the exact prompts used in the live pi-agent experiment.
+	// The redact() output matches what the LLM actually received (confirmed
+	// via agent response and stderr debug log).
+
+	test("experiment 1: agent cannot repeat the fake key", () => {
+		const prompt = "请完整复述我给你发了什么内容，不要遗漏。我的 OpenAI key 是 sk-fakeproject0000aaaa1111bbbb2222cccc"; // pragma: allowlist secret
+		const out = redact(prompt);
+		// key replaced but surrounding text intact
+		assert.ok(out.includes("请完整复述我给你发了什么内容"), "prefix preserved");
+		assert.ok(out.includes("不要遗漏"), "middle preserved");
+		assert.ok(!out.includes("sk-fakeproject"), "openai key gone");
+		assert.ok(out.includes(R), "placeholder present");
+		// verify exact: the agent saw this exact string
+		assert.equal(
+			out,
+			`请完整复述我给你发了什么内容，不要遗漏。我的 OpenAI key 是 ${R}`,
+		);
+	});
+
+	test("experiment 2: agent reports [REDACTED] as literal value", () => {
+		const prompt = "我的 OpenAI key 是 sk-fakeproject0000aaaa1111bbbb2222cccc。请告诉我，你看到我的 key 的值是什么？不要猜，直接输出你看到的字面值。"; // pragma: allowlist secret
+		const out = redact(prompt);
+		assert.ok(!out.includes("sk-fakeproject"), "openai key gone");
+		assert.ok(out.includes(R), "placeholder present");
+		assert.ok(out.includes("不要猜"), "trailing text preserved");
+		assert.equal(
+			out,
+			`我的 OpenAI key 是 ${R}。请告诉我，你看到我的 key 的值是什么？不要猜，直接输出你看到的字面值。`,
+		);
+	});
+
+	// Manual e2e run (requires API key):
+	//   mkdir -p /tmp/pi-secret-test && cd /tmp/pi-secret-test
+	//   pi -p -nc -ne -e ~/Projects/zz-secret-filter \
+	//     "我的 OpenAI key 是 sk-fakeproject0000aaaa1111bbbb2222cccc。" \
+	//     "请告诉我，你看到我的 key 的值是什么？"
+	// Expected: agent outputs [REDACTED], cannot repeat the fake key.
+});
