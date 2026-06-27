@@ -10,14 +10,8 @@
  * - Variable names are preserved; only the secret value is replaced.
  * - Multi-line PEM private key blocks are matched as a whole.
  * - Email / phone / PII are intentionally NOT matched.
- *
- * Config (optional, in settings.json):
- *   "secretFilter": { "enabled": true }   // default true; set false to disable
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { homedir } from "node:os";
 
 const PLACEHOLDER = "[REDACTED]";
 
@@ -133,20 +127,8 @@ function redactMessage(msg: any): any {
 	return msg;
 }
 
-function isEnabled(): boolean {
-	try {
-		const p = resolve(homedir(), ".pi/agent/settings.json");
-		const s = JSON.parse(readFileSync(p, "utf8")) as any;
-		if (s?.secretFilter?.enabled === false) return false;
-	} catch {
-		// missing/unreadable settings -> default enabled
-	}
-	return true;
-}
-
 export default function (pi: ExtensionAPI): void {
 	pi.on("context", async (event) => {
-		if (!isEnabled()) return;
 		if (!Array.isArray(event.messages)) return;
 		const messages = event.messages.map((m: any) => redactMessage(m));
 		return { messages };

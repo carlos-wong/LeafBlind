@@ -27,27 +27,17 @@ pi-agent 扩展：在所有 LLM API 请求发出前，用正则擦除 access tok
 | 类型 | 正则 |
 |------|------|
 | AWS access key | `AKIA[0-9A-Z]{16}` |
-| OpenAI key | `sk-[A-Za-z0-9]{20,}` |
-| GitHub token | `gh[op]_[A-Za-z0-9]{36,}` |
-| Slack token | `xox[baprs]-[0-9a-zA-Z-]{10,}` |
-| JWT | `eyJ...三段` |
-| Bearer token | `Bearer\s+[A-Za-z0-9._-]{20,}` |
+| OpenAI key | `sk-[A-Za-z0-9]{20,}` | <!-- pragma: allowlist secret -->
+| GitHub token | `gh[op]_[A-Za-z0-9]{36,}` | <!-- pragma: allowlist secret -->
+| Slack token | `xox[baprs]-[0-9a-zA-Z-]{10,}` | <!-- pragma: allowlist secret -->
+| JWT | `eyJ...三段` | <!-- pragma: allowlist secret -->
+| Bearer token | `Bearer\s+[A-Za-z0-9._-]{20,}` | <!-- pragma: allowlist secret -->
 | password 赋值 | 保留变量名，替换值 |
 | PEM 私钥块 | `-----BEGIN ... PRIVATE KEY----- ... -----END...` |
 
 ## 性能
 
 1MB 文本过滤 ≤ 50ms（实测 8ms 含 50 secret / 4ms 无 secret）。
-
-## 配置
-
-`settings.json` 可选：
-
-```json
-{ "secretFilter": { "enabled": false } }
-```
-
-设为 `false` 禁用（不卸载扩展）。
 
 ## 测试
 
