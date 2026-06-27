@@ -1,6 +1,0 @@
-$(date "+%Y-%m-%dT%H:%M:%S%z") 移除 secretFilter settings.json 开关，插件加载即生效
-- 修改 index.ts: 删除 isEnabled()、node:fs/path/os 导入、settings.json 读取逻辑
-- 修改 README.md: 删除配置章节，为命中范围表格中的示例正则添加 pragma: allowlist secret 以避免 pre-commit hook 误报
-- 测试: node --experimental-strip-types --test zz-secret-filter.test.mjs -> 27/27 pass
-- 提交: 55f98a8 refactor: remove secretFilter setting, always enable redaction
-
