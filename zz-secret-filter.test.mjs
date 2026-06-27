@@ -157,8 +157,9 @@ describe("boundary / edge cases", () => {
 	test("ghp_ with <36 not matched", () => {
 		assert.equal(redact("ghp_shortvalue"), "ghp_shortvalue");
 	});
-	test("text with image-block path: custom content array image -> placeholder", () => {
-		// redact only takes strings; this documents the message-level path
+	test("image blocks are left untouched", () => {
+		// redact() only handles strings; image blocks pass through unchanged
+		// so multimodal models still receive them
 		assert.equal(redact("plain"), "plain");
 	});
 });

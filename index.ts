@@ -79,7 +79,7 @@ export function redact(text: string): string {
  * Handles: user/assistant/toolResult content arrays (TextContent.text),
  * bashExecution.command/.output, custom.content (string or array),
  * compactionSummary.summary, branchSummary.summary.
- * ImageContent is replaced with a text placeholder (binary, regex can't scan).
+ * ImageContent is left untouched so multimodal models still receive images.
  */
 function redactMessage(msg: any): any {
 	if (!msg || typeof msg !== "object") return msg;
@@ -93,9 +93,6 @@ function redactMessage(msg: any): any {
 			}
 			if (block.type === "thinking" && typeof block.thinking === "string") {
 				return { ...block, thinking: redact(block.thinking) };
-			}
-			if (block.type === "image") {
-				return { type: "text", text: "[IMAGE REDACTED]" };
 			}
 			// toolCall: stringify args, redact, keep structure
 			if (block.type === "toolCall" && block.arguments) {
