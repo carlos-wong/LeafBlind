@@ -1,6 +1,7 @@
 /**
- * zz-secret-filter — redact access tokens / passwords / private keys before
- * they reach the LLM API. Hooks the `context` event (model-agnostic, fires
+ * leafblind — Blinded by a leaf.
+ * Redact access tokens / passwords / env vars before they reach the LLM API.
+ * Hooks the `context` event (model-agnostic, fires
  * before convertToLlm on every LLM call) and runs deterministic regex
  * redaction over all text content in AgentMessage[].
  *
