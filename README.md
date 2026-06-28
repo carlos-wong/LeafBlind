@@ -64,15 +64,9 @@ auto-discovers `extensions/*/index.ts`).
 
 #### Token Formats (whole match replaced)
 
-| Type | Pattern |
-|------|---------|
-| AWS access key | `***` |
-| OpenAI key | `***` |
-| GitHub token | `***` |
-| Slack token | `***` |
-| JWT | `***` |
-| Bearer token | `***` |
-| PEM private key block | `***` |
+Known token formats — including AWS access keys, OpenAI keys, GitHub tokens,
+Slack tokens, JWTs, Bearer tokens, and PEM private key blocks — are matched
+via regex and replaced in their entirety with `[REDACTED]`.
 
 ### Performance
 
@@ -139,15 +133,9 @@ node --experimental-strip-types --test leafblind.integration.test.mjs
 
 #### Token 格式（整体替换）
 
-| 类型 | 正则 |
-|------|------|
-| AWS access key | `***` |
-| OpenAI key | `***` |
-| GitHub token | `***` |
-| Slack token | `***` |
-| JWT | `***` |
-| Bearer token | `***` |
-| PEM 私钥块 | `***` |
+已知 token 格式（包括 AWS access key、OpenAI key、GitHub token、
+Slack token、JWT、Bearer token 及 PEM 私钥块）通过正则匹配后整体替换为
+`[REDACTED]`。
 
 ### 性能
 
