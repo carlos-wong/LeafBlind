@@ -10,11 +10,11 @@ pi-agent 扩展：在所有 LLM API 请求发出前，用正则擦除 access tok
 
 ```json
 {
-  "extensionSources": ["~/Projects/zz-secret-filter"]
+  "extensionSources": ["~/Projects/leafblind"]
 }
 ```
 
-或把本目录 symlink/复制到 `~/.pi/agent/extensions/zz-secret-filter/`（pi 自动发现 `extensions/*/index.ts`）。
+或把本目录 symlink/复制到 `~/.pi/agent/extensions/leafblind/`（pi 自动发现 `extensions/*/index.ts`）。
 
 ## 机制
 
@@ -62,7 +62,7 @@ pi-agent 扩展：在所有 LLM API 请求发出前，用正则擦除 access tok
 ## 测试
 
 ```bash
-node --experimental-strip-types --test zz-secret-filter.test.mjs
+node --experimental-strip-types --test leafblind.test.mjs
 ```
 
 60 条用例，全部使用纯虚构占位值（fake/test 标记），无真实 secret。
