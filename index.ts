@@ -18,10 +18,7 @@
  *   prefix stays stable across turns.
  * - ImageContent is left untouched so multimodal models still receive images.
  */
-import { writeFileSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-
-writeFileSync("/tmp/zz-secret-filter.log", "MODULE_LOADED " + new Date().toISOString() + "\n");
 
 const PLACEHOLDER = "[REDACTED]";
 
@@ -190,16 +187,10 @@ export function walkPayload(obj: any): any {
 }
 
 function activate(pi: ExtensionAPI): void {
-	try {
-		writeFileSync("/tmp/pi-register-debug.log", "activate_enter " + new Date().toISOString() + "\n");
-		pi.on("context", async (event) => {
+	pi.on("context", async (event) => {
 		writeFileSync("/tmp/pi-ctx-fire.log", "context_fired " + (event.messages?.length || 0) + " msgs " + new Date().toISOString() + "\n");
 		if (!Array.isArray(event.messages)) return;
 		const messages = event.messages.map((m: any) => redactMessage(m));
-		// Log whether we see a read result
-		const last = messages[messages.length - 1];
-		const isTool = last?.role === "toolResult";
-		writeFileSync("/tmp/pi-ctx-fire.log", "context_fired msgs=" + messages.length + " lastRole=" + last?.role + " isToolResult=" + isTool + " " + new Date().toISOString() + "\n");
 		return { messages };
 	});
 
@@ -208,13 +199,9 @@ function activate(pi: ExtensionAPI): void {
 	// the context event may not fire on intermediate tool-result messages.
 	pi.on("before_provider_request", (event) => {
 		if (!event.payload) return;
-		writeFileSync("/tmp/pi-provider-payload.json", JSON.stringify({ fired: true, hasMessages: !!event.payload.messages, msgCount: event.payload.messages?.length, time: new Date().toISOString() }, null, 2));
 		const newPayload = walkPayload(event.payload);
 		return newPayload;
 	});
-	} catch (e: any) {
-		writeFileSync("/tmp/pi-register-error.log", "activate_error: " + (e?.message || String(e)) + "\n");
-	}
 }
 // Named exports (ESM) + CommonJS (pi's require() loader)
 export default activate;
