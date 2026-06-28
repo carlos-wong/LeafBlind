@@ -6,9 +6,9 @@ pi-agent 扩展：在所有 LLM API 请求发出前，用正则擦除 access tok
 
 专为 [pi-agent](https://github.com/earendil-works/pi-coding-agent) 设计，已在 0.80.2 及以上版本测试通过。
 
-**设计假设：** LLM agent 只需要知道*哪些*环境变量被设置了，不需要知道
-它们的真实值。本扩展确保值永远不会到达模型，同时保留变量名和声明语法，
-让 agent 仍能推理环境配置。
+**设计假设：** LLM agent 只需要环境变量的**名字**来推理配置，永远不需要
+它们的真实值。本扩展在所有值到达模型之前将其替换为 `[REDACTED]`，同时保留
+变量名和声明语法。
 
 [English](README.md)
 

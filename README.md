@@ -8,10 +8,10 @@ matching — while preserving variable names.
 
 Designed for and tested on [pi-agent](https://github.com/earendil-works/pi-coding-agent) ≥ 0.80.2.
 
-**Why this exists:** the assumption is that an LLM agent only needs to know
-*which* environment variables are set — not their actual values. This extension
-ensures values never reach the model, while variable names and declaration
-syntax are preserved so the agent can still reason about the environment.
+**Why this exists:** the assumption is that an LLM agent only needs
+environment variable **names** to reason about configuration — never their
+actual values. This extension redacts all values to `[REDACTED]` before they
+reach the model, while preserving variable names and declaration syntax.
 
 [中文文档](README.zh.md)
 
