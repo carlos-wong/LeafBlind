@@ -189,7 +189,6 @@ export function walkPayload(obj: any): any {
 
 function activate(pi: ExtensionAPI): void {
 	pi.on("context", async (event) => {
-		writeFileSync("/tmp/pi-ctx-fire.log", "context_fired " + (event.messages?.length || 0) + " msgs " + new Date().toISOString() + "\n");
 		if (!Array.isArray(event.messages)) return;
 		const messages = event.messages.map((m: any) => redactMessage(m));
 		return { messages };
