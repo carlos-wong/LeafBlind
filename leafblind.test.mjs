@@ -231,6 +231,29 @@ describe("REQ-003 Bearer token anchored", () => {
 	});
 });
 
+describe("special characters in env var values", () => {
+	// Values from real-world carlos_temp_key.rc with shell-special chars: *, %, !, #, ^, &
+	test("export with special chars (* %)", () => {
+		assert.equal(redact("export PASS=mSk*jgR0J%W6JeJm"), `export PASS=${R}`); // pragma: allowlist secret
+	});
+	test("export with special chars (& ! # ^)", () => {
+		assert.equal(redact("export SFKJSDLF=&eh!OOU#7fLP0^uE"), `export SFKJSDLF=${R}`); // pragma: allowlist secret
+	});
+	test("bare assignment with special chars (* %)", () => {
+		assert.equal(redact("PASS=mSk*jgR0J%W6JeJm"), `PASS=${R}`); // pragma: allowlist secret
+	});
+	test("bare assignment with special chars (& ! # ^)", () => {
+		assert.equal(redact("SFKJSDLF=&eh!OOU#7fLP0^uE"), `SFKJSDLF=${R}`); // pragma: allowlist secret
+	});
+	test("special chars value not leaked in output", () => {
+		const out = redact("export PASS=mSk*jgR0J%W6JeJm");
+		assert.ok(!out.includes("mSk"), "password chars gone");
+		assert.ok(!out.includes("eh!"), "special chars gone");
+		assert.ok(out.includes("PASS="), "var name preserved");
+		assert.ok(out.endsWith(R), "ends with placeholder");
+	});
+});
+
 describe("e2e: experiment prompts (pi -p -e ...)", () => {
 	// These are the exact prompts used in the live pi-agent experiment.
 	// The redact() output matches what the LLM actually received (confirmed
