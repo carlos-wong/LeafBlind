@@ -190,8 +190,9 @@ export function walkPayload(obj: any): any {
 }
 
 function activate(pi: ExtensionAPI): void {
-	writeFileSync("/tmp/pi-register-debug.log", "default_export_called " + new Date().toISOString() + "\n");
-	pi.on("context", async (event) => {
+	try {
+		writeFileSync("/tmp/pi-register-debug.log", "activate_enter " + new Date().toISOString() + "\n");
+		pi.on("context", async (event) => {
 		if (!Array.isArray(event.messages)) return;
 		const messages = event.messages.map((m: any) => redactMessage(m));
 		// Debug: log whether we see tool results in the messages
@@ -215,6 +216,9 @@ function activate(pi: ExtensionAPI): void {
 		const newPayload = walkPayload(event.payload);
 		return newPayload;
 	});
+	} catch (e: any) {
+		writeFileSync("/tmp/pi-register-error.log", "activate_error: " + (e?.message || String(e)) + "\n");
+	}
 }
 // Named exports (ESM) + CommonJS (pi's require() loader)
 export default activate;
