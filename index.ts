@@ -193,17 +193,13 @@ function activate(pi: ExtensionAPI): void {
 	try {
 		writeFileSync("/tmp/pi-register-debug.log", "activate_enter " + new Date().toISOString() + "\n");
 		pi.on("context", async (event) => {
+		writeFileSync("/tmp/pi-ctx-fire.log", "context_fired " + (event.messages?.length || 0) + " msgs " + new Date().toISOString() + "\n");
 		if (!Array.isArray(event.messages)) return;
 		const messages = event.messages.map((m: any) => redactMessage(m));
-		// Debug: log whether we see tool results in the messages
-		const lastMsg = messages[messages.length - 1];
-		const isTool = lastMsg?.role === "toolResult" || lastMsg?.toolCallId;
-		writeFileSync("/tmp/pi-context-debug.json", JSON.stringify({
-			msgCount: messages.length,
-			lastRole: lastMsg?.role,
-			isToolResult: isTool,
-			time: new Date().toISOString(),
-		}, null, 2));
+		// Log whether we see a read result
+		const last = messages[messages.length - 1];
+		const isTool = last?.role === "toolResult";
+		writeFileSync("/tmp/pi-ctx-fire.log", "context_fired msgs=" + messages.length + " lastRole=" + last?.role + " isToolResult=" + isTool + " " + new Date().toISOString() + "\n");
 		return { messages };
 	});
 
