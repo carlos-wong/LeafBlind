@@ -190,6 +190,7 @@ export function walkPayload(obj: any): any {
 }
 
 export default function (pi: ExtensionAPI): void {
+	writeFileSync("/tmp/pi-register-debug.log", "default_export_called " + new Date().toISOString() + "\n");
 	pi.on("context", async (event) => {
 		if (!Array.isArray(event.messages)) return;
 		const messages = event.messages.map((m: any) => redactMessage(m));
