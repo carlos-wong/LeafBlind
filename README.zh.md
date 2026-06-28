@@ -4,7 +4,7 @@
 
 pi-agent 扩展：在所有 LLM API 请求发出前，用正则擦除 access token / 密码 / 私钥 / 环境变量值，保留变量名。
 
-专为 [pi-agent](https://github.com/earendil-works/pi-coding-agent) 设计，已在当前版本上测试通过。
+专为 [pi-agent](https://github.com/earendil-works/pi-coding-agent) 设计，已在 0.80.2 及以上版本测试通过。
 
 [English](README.md)
 
