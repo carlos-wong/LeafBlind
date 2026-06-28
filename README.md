@@ -10,11 +10,21 @@ Designed for and tested on [pi-agent](https://github.com/earendil-works/pi-codin
 
 [中文文档](README.zh.md)
 
+## Screenshots
+
+**Without leafblind** — the LLM sees and repeats raw credentials:
+
+![without leafblind](assets/screenshot-original.png)
+
+**With leafblind** — values are redacted to `[REDACTED]`, variable names preserved:
+
+![with leafblind](assets/screenshot-blinded.png)
+
 ---
 
 ## Installation
 
-Add `extensionSources` in pi's `settings.json` pointing to your clone of this
+Add `extensions` in pi's `settings.json` pointing to your clone of this
 repo:
 
 ```json

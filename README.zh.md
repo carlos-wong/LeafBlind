@@ -8,11 +8,21 @@ pi-agent 扩展：在所有 LLM API 请求发出前，用正则擦除 access tok
 
 [English](README.md)
 
+## 效果展示
+
+**未安装 leafblind** — LLM 看到并复述了原始凭据：
+
+![未安装](assets/screenshot-original.png)
+
+**安装 leafblind 后** — 值被替换为 `[REDACTED]`，变量名保留：
+
+![安装后](assets/screenshot-blinded.png)
+
 ---
 
 ## 安装
 
-在 pi 的 `settings.json` 加 `extensionSources` 指向你克隆本仓库的路径：
+在 pi 的 `settings.json` 加 `extensions` 指向你克隆本仓库的路径：
 
 ```json
 {
