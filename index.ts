@@ -189,7 +189,7 @@ export function walkPayload(obj: any): any {
 	return r;
 }
 
-export default function (pi: ExtensionAPI): void {
+function activate(pi: ExtensionAPI): void {
 	writeFileSync("/tmp/pi-register-debug.log", "default_export_called " + new Date().toISOString() + "\n");
 	pi.on("context", async (event) => {
 		if (!Array.isArray(event.messages)) return;
@@ -215,4 +215,11 @@ export default function (pi: ExtensionAPI): void {
 		const newPayload = walkPayload(event.payload);
 		return newPayload;
 	});
+}
+// Named exports (ESM) + CommonJS (pi's require() loader)
+export default activate;
+if (typeof module !== "undefined") {
+	module.exports = activate;
+	module.exports.redact = redact;
+	module.exports.walkPayload = walkPayload;
 }
