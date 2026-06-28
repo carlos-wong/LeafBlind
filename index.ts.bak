@@ -18,10 +18,7 @@
  *   prefix stays stable across turns.
  * - ImageContent is left untouched so multimodal models still receive images.
  */
-import { writeFileSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-
-writeFileSync("/tmp/zz-secret-filter.log", "MODULE_LOADED " + new Date().toISOString() + "\n");
 
 const PLACEHOLDER = "[REDACTED]";
 
@@ -177,28 +174,14 @@ export default function (pi: ExtensionAPI): void {
 	pi.on("context", async (event) => {
 		if (!Array.isArray(event.messages)) return;
 		const messages = event.messages.map((m: any) => redactMessage(m));
+		// Debug log to stderr: what the LLM actually receives
+		{
+			const last = messages[messages.length - 1];
+			const txt = typeof last?.content === "string" ? last.content
+				: Array.isArray(last?.content) ? last.content.map((b: any) => b.text ?? "").join("")
+				: JSON.stringify(last);
+			console.error("[zz-secret-filter] last message (post-redact):", txt.slice(0, 300));
+		}
 		return { messages };
-	});
-
-	// Also hook before_provider_request to catch tool results in streaming
-	// providers where the LLM handles tool calls in a single API call and
-	// the context event may not fire on intermediate tool-result messages.
-	pi.on("before_provider_request", (event) => {
-		if (!event.payload) return;
-		// Walk the provider payload for text content (deep copy, safe to mutate)
-		const walk = (obj: any): any => {
-			if (!obj || typeof obj !== "object") return obj;
-			if (Array.isArray(obj)) return obj.map(walk);
-			const r: any = {};
-			for (const k of Object.keys(obj)) {
-				const v = obj[k];
-				r[k] = (k === "content" && typeof v === "string") ? redact(v)
-					: (k === "text" && typeof v === "string") ? redact(v)
-					: walk(v);
-			}
-			return r;
-		};
-		const newPayload = walk(event.payload);
-		return newPayload;
 	});
 }
