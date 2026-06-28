@@ -19,7 +19,7 @@ repo:
 
 ```json
 {
-  "extensionSources": ["<path-to-cloned-repo>"]
+  "extensions": ["<path-to-cloned-repo>"]
 }
 ```
 
