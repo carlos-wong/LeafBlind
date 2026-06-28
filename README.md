@@ -6,6 +6,8 @@ A pi-agent extension that redacts access tokens, passwords, private keys, and
 environment variable values from all LLM API requests using deterministic regex
 matching — while preserving variable names.
 
+Designed for and tested on [pi-agent](https://github.com/earendil-works/pi-coding-agent).
+
 ---
 
 - [English](#english)
@@ -17,15 +19,16 @@ matching — while preserving variable names.
 
 ### Installation
 
-Add `extensionSources` in pi's `settings.json` pointing to this directory:
+Add `extensionSources` in pi's `settings.json` pointing to your clone of this
+repo:
 
 ```json
 {
-  "extensionSources": ["~/Projects/leafblind"]
+  "extensionSources": ["<path-to-cloned-repo>"]
 }
 ```
 
-Or symlink/copy this directory to `~/.pi/agent/extensions/leafblind/` (pi
+Or symlink/copy this directory into `~/.pi/agent/extensions/leafblind/` (pi
 auto-discovers `extensions/*/index.ts`).
 
 ### Mechanism
@@ -87,13 +90,15 @@ node --experimental-strip-types --test leafblind.integration.test.mjs
 
 ## 中文
 
+pi-agent 扩展，专为 [pi-agent](https://github.com/earendil-works/pi-coding-agent) 设计，已在当前版本上测试通过。
+
 ### 安装
 
-在 pi 的 `settings.json` 加 `extensionSources` 指向本目录：
+在 pi 的 `settings.json` 加 `extensionSources` 指向你克隆本仓库的路径：
 
 ```json
 {
-  "extensionSources": ["~/Projects/leafblind"]
+  "extensionSources": ["<本仓库克隆路径>"]
 }
 ```
 
