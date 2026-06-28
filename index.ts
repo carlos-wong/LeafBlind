@@ -18,6 +18,7 @@
  *   prefix stays stable across turns.
  * - ImageContent is left untouched so multimodal models still receive images.
  */
+process.stderr.write("[zz-secret-filter] MODULE LOADED\n");
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const PLACEHOLDER = "[REDACTED]";
