@@ -16,7 +16,7 @@ pi-agent 扩展：在所有 LLM API 请求发出前，用正则擦除 access tok
 
 ```json
 {
-  "extensionSources": ["<本仓库克隆路径>"]
+  "extensions": ["<本仓库克隆路径>"]
 }
 ```
 
