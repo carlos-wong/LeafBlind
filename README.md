@@ -1,6 +1,8 @@
-# zz-secret-filter
+# leafblind
 
-pi-agent 扩展：在所有 LLM API 请求发出前，用正则擦除 access token / 密码 / 私钥，保留变量名。
+> **Blinded by a leaf.** — 一叶障目，不见泰山。
+
+pi-agent 扩展：在所有 LLM API 请求发出前，用正则擦除 access token / 密码 / 私钥 / 环境变量值，保留变量名。
 
 ## 安装
 
