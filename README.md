@@ -6,7 +6,7 @@ A pi-agent extension that redacts access tokens, passwords, private keys, and
 environment variable values from all LLM API requests using deterministic regex
 matching — while preserving variable names.
 
-Designed for and tested on [pi-agent](https://github.com/earendil-works/pi-coding-agent).
+Designed for and tested on [pi-agent](https://github.com/earendil-works/pi-coding-agent) ≥ 0.80.2.
 
 [中文文档](README.zh.md)
 
