@@ -341,3 +341,97 @@ describe("REQ-003 non-declaration contexts NOT redacted", () => {
 		assert.equal(redact(s), s);
 	});
 });
+
+const walkPayload = await import("./index.ts").then(m => m.walkPayload);
+const R2 = "[REDACTED]";
+
+describe("REQ-002 before_provider_request payload walk", () => {
+	test("OpenAI format: message.content string is redacted", () => {
+		const payload = {
+			model: "test-model",
+			messages: [
+				{ role: "user", content: "export PASS_ZTE=FAKEpass0001" },
+				{ role: "assistant", content: "OK" },
+				{ role: "tool", tool_call_id: "call_1", content: "export PASS_ZTE=FAKEpass0001\n" },
+			],
+		};
+		const out = walkPayload(payload);
+		// user message redacted
+		assert.equal(out.messages[0].content, `export PASS_ZTE=${R2}`);
+		// assistant unchanged
+		assert.equal(out.messages[1].content, "OK");
+		// tool result redacted
+		assert.equal(out.messages[2].content, `export PASS_ZTE=${R2}\n`);
+		// original not mutated
+		assert.ok(payload.messages[0].content.includes("FAKEpass0001"), "original unmuted");
+	});
+
+	test("Anthropic format: content[].text is redacted", () => {
+		const payload = {
+			model: "claude-sonnet",
+			messages: [
+				{
+					role: "user",
+					content: [
+						{ type: "text", text: "export PASS_ZTE=FAKEpass0001" },
+					],
+				},
+				{
+					role: "user",
+					content: [
+						{
+							type: "tool_result",
+							tool_use_id: "xxx",
+							content: [
+								{ type: "text", text: "export PASS_ZTE=FAKEpass0001\n" },
+							],
+						},
+					],
+				},
+			],
+		};
+		const out = walkPayload(payload);
+		assert.equal(out.messages[0].content[0].text, `export PASS_ZTE=${R2}`);
+		assert.equal(out.messages[1].content[0].content[0].text, `export PASS_ZTE=${R2}\n`);
+	});
+
+	test("OpenAI format: read tool result with real file content is redacted", () => {
+		// Simulate what pi sends for a read tool result
+		const payload = {
+			model: "glm-5.2",
+			messages: [
+				{ role: "user", content: "read this file" },
+				{
+					role: "tool",
+					tool_call_id: "call_read_1",
+					content: "export PASS_ZTE=FAKEpass0001\n",
+				},
+			],
+		};
+		const out = walkPayload(payload);
+		assert.equal(out.messages[1].content, `export PASS_ZTE=${R2}\n`);
+		assert.ok(!out.messages[1].content.includes("FAKEpass0001"), "value gone");
+	});
+
+	test("nested objects with text key deep in structure", () => {
+		const payload = {
+			request: {
+				body: {
+					text: "export PASS_ZTE=FAKEpass0001",
+				},
+			},
+		};
+		const out = walkPayload(payload);
+		assert.equal(out.request.body.text, `export PASS_ZTE=${R2}`);
+	});
+
+	test("string values at non-content/text keys are left alone", () => {
+		const payload = {
+			model: "deepseek-v4",
+			messages: [{ role: "user", content: "normal text" }],
+		};
+		const out = walkPayload(payload);
+		assert.equal(out.model, "deepseek-v4");
+		assert.equal(out.messages[0].content, "normal text");
+	});
+});

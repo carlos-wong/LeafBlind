@@ -173,6 +173,22 @@ function redactMessage(msg: any): any {
 	return msg;
 }
 
+// Walk a provider payload and redact text content on "content" or "text" keys.
+// This is used by both the `context` and `before_provider_request` handlers
+// to catch tool-result messages that may not trigger a separate `context` event.
+export function walkPayload(obj: any): any {
+	if (!obj || typeof obj !== "object") return obj;
+	if (Array.isArray(obj)) return obj.map(walkPayload);
+	const r: any = {};
+	for (const k of Object.keys(obj)) {
+		const v = obj[k];
+		r[k] = (k === "content" && typeof v === "string") ? redact(v)
+			: (k === "text" && typeof v === "string") ? redact(v)
+			: walkPayload(v);
+	}
+	return r;
+}
+
 export default function (pi: ExtensionAPI): void {
 	pi.on("context", async (event) => {
 		if (!Array.isArray(event.messages)) return;
@@ -185,20 +201,8 @@ export default function (pi: ExtensionAPI): void {
 	// the context event may not fire on intermediate tool-result messages.
 	pi.on("before_provider_request", (event) => {
 		if (!event.payload) return;
-		// Walk the provider payload for text content (deep copy, safe to mutate)
-		const walk = (obj: any): any => {
-			if (!obj || typeof obj !== "object") return obj;
-			if (Array.isArray(obj)) return obj.map(walk);
-			const r: any = {};
-			for (const k of Object.keys(obj)) {
-				const v = obj[k];
-				r[k] = (k === "content" && typeof v === "string") ? redact(v)
-					: (k === "text" && typeof v === "string") ? redact(v)
-					: walk(v);
-			}
-			return r;
-		};
-		const newPayload = walk(event.payload);
+		writeFileSync("/tmp/pi-provider-payload.json", JSON.stringify({ fired: true, hasMessages: !!event.payload.messages, msgCount: event.payload.messages?.length, time: new Date().toISOString() }, null, 2));
+		const newPayload = walkPayload(event.payload);
 		return newPayload;
 	});
 }
