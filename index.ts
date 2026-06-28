@@ -18,8 +18,10 @@
  *   prefix stays stable across turns.
  * - ImageContent is left untouched so multimodal models still receive images.
  */
-process.stderr.write("[zz-secret-filter] MODULE LOADED\n");
+import { writeFileSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+writeFileSync("/tmp/zz-secret-filter.log", "MODULE_LOADED " + new Date().toISOString() + "\n");
 
 const PLACEHOLDER = "[REDACTED]";
 
