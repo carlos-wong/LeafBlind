@@ -4,53 +4,104 @@
  * before convertToLlm on every LLM call) and runs deterministic regex
  * redaction over all text content in AgentMessage[].
  *
+ * Strategy (syntax-driven, redact-all-values):
+ * - Any environment-variable declaration has its VALUE replaced with the
+ *   fixed literal "[REDACTED]"; the variable name and declaration keyword
+ *   (export/declare/set/...) are preserved so the agent still knows which
+ *   variable was set. Sensitivity is NOT decided by the variable name.
+ * - Known token formats (AWS/OpenAI/GitHub/Slack/JWT/Bearer) and PEM private
+ *   key blocks are still matched anywhere as whole tokens.
+ * - Command options (--opt=val), JSON keys, and function args are NOT
+ *   declarations and are left untouched.
  * - redact() is a pure function: same input -> same output, placeholder is
  *   the fixed literal "[REDACTED]" (no timestamps/random) so prompt cache
  *   prefix stays stable across turns.
- * - Variable names are preserved; only the secret value is replaced.
- * - Multi-line PEM private key blocks are matched as a whole.
- * - Email / phone / PII are intentionally NOT matched.
+ * - ImageContent is left untouched so multimodal models still receive images.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const PLACEHOLDER = "[REDACTED]";
 
 // ---------------------------------------------------------------------------
-// Regex set — known access-token formats + password assignments + PEM blocks.
-// Deliberately narrow: email/phone/PII are NOT matched.
+// Patterns. Each entry is { re, fn }; fn maps the match (plus capture groups)
+// to its redacted replacement. Token patterns replace the whole match with
+// PLACEHOLDER; assignment patterns rebuild the line keeping the var name.
 // ---------------------------------------------------------------------------
-const SECRET_PATTERNS: RegExp[] = [
+
+// Prefix: variable must be at line start, after ; & , or right after a
+// declaration keyword (export/declare/env/set). This is what separates a
+// real declaration from a function argument (arg=) or a command option
+// (--opt=) or a member access (obj.var=). Each keyword branch carries its
+// own trailing whitespace so declare -x is consumed fully.
+const PRE = "((?:export\\s+|declare\\s+(?:-\\w+\\s+)?|env\\s+|set\\s+|^|(?<=[\\n;&])))";
+
+const SECRET_PATTERNS: { re: RegExp; fn: (...a: string[]) => string }[] = [
+	// --- token formats (replace whole match) ---
 	// AWS access key id (AKIA + 16 uppercase alnum)
-	/AKIA[0-9A-Z]{16}/g, // pragma: allowlist secret
+	{ re: /AKIA[0-9A-Z]{16}/g, fn: () => PLACEHOLDER }, // pragma: allowlist secret
 	// OpenAI key (sk- + 20+ alnum)
-	/sk-[A-Za-z0-9]{20,}/g, // pragma: allowlist secret
-	// GitHub token (gh[oprsuca]_ + 36+ alnum): PAT, OAuth, SAML, runner, user-server, cogliot, app
-	/gh[oprsuca]_[A-Za-z0-9]{36,}/g,
+	{ re: /sk-[A-Za-z0-9]{20,}/g, fn: () => PLACEHOLDER }, // pragma: allowlist secret
+	// GitHub token (gh[oprsuca]_ + 36+ alnum)
+	{ re: /gh[oprsuca]_[A-Za-z0-9]{36,}/g, fn: () => PLACEHOLDER },
 	// Slack token (xox[baprs]- + 10+ alnum/-)
-	/xox[baprs]-[0-9a-zA-Z-]{10,}/g,
+	{ re: /xox[baprs]-[0-9a-zA-Z-]{10,}/g, fn: () => PLACEHOLDER },
 	// JWT (three base64url segments, each 10+, dot-separated, starts eyJ)
-	/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
-	// Bearer token (Bearer + 20+ token chars, anchored to avoid URL/path false positives)
-	/\bBearer\s+[A-Za-z0-9._-]{20,}\b/g,
-	// password / passwd assignment — keep var name, replace value.
-	// group 1 = "name=" prefix (incl. optional quote), group 2 = value (6+, stops at space/quote/semicolon)
-	/(\b\w*(?:password|passwd)\w*\s*[=:]\s*["']?)([^;\s"']{6,})/gi,
+	{ re: /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, fn: () => PLACEHOLDER },
+	// Bearer token (Bearer + 20+ token chars, anchored)
+	{ re: /\bBearer\s+[A-Za-z0-9._-]{20,}\b/g, fn: () => PLACEHOLDER },
 	// Multi-line PEM private key block (BEGIN..END, non-greedy, requires END)
-	/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END[A-Z ]*PRIVATE KEY-----/g, // pragma: allowlist secret
+	{ re: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END[A-Z ]*PRIVATE KEY-----/g, fn: () => PLACEHOLDER }, // pragma: allowlist secret
+
+	// --- environment-variable declarations (keep var name + keyword, redact value) ---
+	// Syntax 1: export/declare/env/set prefix OR line-start/after ;&, `=`, bare value.
+	// Covers: export VAR=v / declare -x VAR=v / env VAR=v cmd / set VAR=v / VAR=v / VAR=v cmd
+	{
+		re: new RegExp(`${PRE}([A-Za-z_]\\w*)\\s*=\\s*([^;\\s"']+)`, "g"),
+		fn: (_m, pre, v) => `${pre}${v}=${PLACEHOLDER}`,
+	},
+	// Syntax 2: same prefix, `=`, double-quoted value
+	{
+		re: new RegExp(`${PRE}([A-Za-z_]\\w*)\\s*=\\s*"([^"\\n]*)"`, "g"),
+		fn: (_m, pre, v) => `${pre}${v}="${PLACEHOLDER}"`,
+	},
+	// Syntax 3: same prefix, `=`, single-quoted value
+	{
+		re: new RegExp(`${PRE}([A-Za-z_]\\w*)\\s*=\\s*'([^'\\n]*)'`, "g"),
+		fn: (_m, pre, v) => `${pre}${v}='${PLACEHOLDER}'`,
+	},
+	// Syntax 4: YAML / colon assignment at line start: VAR: value (incl. quoted)
+	{
+		re: /^([A-Za-z_]\w*)\s*:\s+(.+)$/gm,
+		fn: (_m, v) => `${v}: ${PLACEHOLDER}`,
+	},
+	// Syntax 5: PowerShell: $env:VAR = "value"
+	{
+		re: /(\$env:)([A-Za-z_]\w*)\s*=\s*"([^"\n]*)"/g,
+		fn: (_m, p, v) => `${p}${v} = "${PLACEHOLDER}"`,
+	},
+	// Syntax 6: fish: set -x VAR value  (space-separated, no =)
+	{
+		re: /(set\s+-\w*x\w*\s+)([A-Za-z_]\w*)\s+(\S+)/g,
+		fn: (_m, p, v) => `${p}${v} ${PLACEHOLDER}`,
+	},
+	// Syntax 7: Python: os.environ["VAR"] = "value"
+	{
+		re: /(os\.environ\[)(["'])([A-Za-z_]\w*)(["']\]\s*=\s*)(["'])([^"'\n]*)(["'])/g,
+		fn: (_m, p, q1, v, mid, q2, _val, q3) => `${p}${q1}${v}${mid}${q2}${PLACEHOLDER}${q3}`,
+	},
 ];
 
 /**
  * Redact secrets from a single text string. Pure function.
- * Value-preserving: for "name=secret" patterns, keeps "name=" prefix.
  */
-// Fast pre-filter: skip 8-regex pass if text contains none of the secret
-// markers. Scanning 1MB against 8 regexes is ~100ms; this single indexOf
-// sweep is ~1ms and short-circuits the common (no-secret) case.
+// Fast pre-filter: skip the regex pass if text contains none of the secret
+// markers. Bare assignments carry `=`/`:`, so those are markers too; the
+// 1MB performance-test padding has none of them and still short-circuits.
 const MARKERS = [
-	"AKIA", "sk-", "ghp_", "gho_", "ghs_", "ghr_", "ghu_", "ghc_", "gha_", "xox", "eyJ", "Bearer",
-	"password", "passwd", "PASSWORD", "PASSWD",
+	"AKIA", "sk-", "ghp_", "gho_", "ghs_", "ghr_", "ghu_", "ghc_", "gha_", "xox", "eyJ", "Bearer", // pragma: allowlist secret
 	"BEGIN PRIVATE KEY", "BEGIN RSA PRIVATE KEY", "BEGIN EC PRIVATE KEY", // pragma: allowlist secret
 	"BEGIN OPENSSH PRIVATE KEY", "BEGIN PGP PRIVATE KEY", // pragma: allowlist secret
+	"=", ":", "export", "declare", "set", "env", "os.environ", "$env",
 ];
 
 function mightContainSecret(text: string): boolean {
@@ -63,13 +114,8 @@ function mightContainSecret(text: string): boolean {
 export function redact(text: string): string {
 	if (!mightContainSecret(text)) return text;
 	let out = text;
-	for (const re of SECRET_PATTERNS) {
-		// password pattern has a capture group for the var-name prefix
-		if (re.source.includes("password|passwd")) {
-			out = out.replace(re, (_m, p1: string) => `${p1}${PLACEHOLDER}`);
-		} else {
-			out = out.replace(re, PLACEHOLDER);
-		}
+	for (const { re, fn } of SECRET_PATTERNS) {
+		out = out.replace(re, fn as (...a: string[]) => string);
 	}
 	return out;
 }

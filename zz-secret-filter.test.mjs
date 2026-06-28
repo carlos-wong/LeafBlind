@@ -65,22 +65,25 @@ describe("REQ-004 multi-line PEM private key (REQ-007)", () => {
 	});
 });
 
-describe("REQ-005 non-sensitive not hit (4/4)", () => {
-	test("email not redacted", () => {
+describe("REQ-004 syntax-driven: bare assignments redacted (was non-sensitive)", () => {
+	// Strategy changed: ANY declaration has its value redacted regardless of
+	// the variable name. These used to assert "not hit"; now they assert the
+	// value is redacted while the var name is preserved.
+	test("contact=user@example.com -> value redacted", () => {
 		const s = "contact=user@example.com";
-		assert.equal(redact(s), s);
+		assert.equal(redact(s), `contact=${R}`);
 	});
-	test("phone not redacted", () => {
+	test("phone=13800138000 -> value redacted", () => {
 		const s = "phone=13800138000";
-		assert.equal(redact(s), s);
+		assert.equal(redact(s), `phone=${R}`);
 	});
-	test("normal var not redacted", () => {
+	test("normal_var=hello world -> value (up to space) redacted", () => {
 		const s = "normal_var=hello world";
-		assert.equal(redact(s), s);
+		assert.equal(redact(s), `normal_var=${R} world`);
 	});
-	test("var name contains key/secret/token but short value -> not hit", () => {
+	test("api_key_name=my-service -> value redacted", () => {
 		const s = "api_key_name=my-service";
-		assert.equal(redact(s), s);
+		assert.equal(redact(s), `api_key_name=${R}`);
 	});
 });
 
@@ -266,4 +269,75 @@ describe("e2e: experiment prompts (pi -p -e ...)", () => {
 	//     "我的 OpenAI key 是 sk-fakeproject0000aaaa1111bbbb2222cccc。" \
 	//     "请告诉我，你看到我的 key 的值是什么？"
 	// Expected: agent outputs [REDACTED], cannot repeat the fake key.
+});
+
+describe("REQ-002 env declaration syntaxes (9/9) — value redacted, var name kept", () => {
+	// All values fictional (fake/test/EXAMPLE).
+	test("1. export VAR=val (bare value)", () => {
+		assert.equal(redact("export PASS_ZTE=FAKEpass0001"), `export PASS_ZTE=${R}`); // pragma: allowlist secret
+	});
+	test("1b. export VAR preserves keyword", () => {
+		const out = redact("export PATH=/usr/local/bin:/usr/bin");
+		assert.ok(out.startsWith("export PATH="), "export + var name kept");
+		assert.ok(!out.includes("/usr/local"), "value gone");
+	});
+	test("2. bare VAR=val (line start)", () => {
+		assert.equal(redact("PASS_ZTE=FAKEpass0001"), `PASS_ZTE=${R}`); // pragma: allowlist secret
+	});
+	test("3. VAR: val (YAML/colon)", () => {
+		assert.equal(redact("wifi_pass: FAKEpass0001"), `wifi_pass: ${R}`); // pragma: allowlist secret
+	});
+	test("3b. VAR: \"val\" (YAML quoted)", () => {
+		assert.equal(redact('token: "fakefakefakefake"'), `token: ${R}`);
+	});
+	test("4. declare -x VAR=val", () => {
+		const out = redact('declare -x MY_SECRET="fakepw123456"');
+		assert.ok(out.startsWith('declare -x MY_SECRET='), "declare + var kept");
+		assert.ok(!out.includes("fakepw123456"), "value gone");
+	});
+	test("5. env VAR=val cmd (prefix)", () => {
+		assert.equal(redact("env API_KEY=fakekey123456 python app.py"), `env API_KEY=${R} python app.py`);
+	});
+	test("6. set VAR=val (Windows)", () => {
+		assert.equal(redact("set DB_PASS=fakepass789"), `set DB_PASS=${R}`);
+	});
+	test("7. $env:VAR = \"val\" (PowerShell)", () => {
+		assert.equal(redact('$env:TOKEN = "fakefakefake123"'), `$env:TOKEN = "${R}"`);
+	});
+	test("8. set -x VAR val (fish)", () => {
+		assert.equal(redact("set -x MY_PWD fakepwd999"), `set -x MY_PWD ${R}`);
+	});
+	test("9. os.environ[\"VAR\"] = \"val\" (Python)", () => {
+		assert.equal(redact('os.environ["PSK"] = "fakefakefake"'), `os.environ["PSK"] = "${R}"`);
+	});
+	test("quote variant: export VAR='val' (single quote)", () => {
+		assert.equal(redact("export SECRET='fakefake123'"), `export SECRET='${R}'`);
+	});
+	test("quote variant: export VAR=\"val\" (double quote)", () => {
+		assert.equal(redact('export SECRET="fakefake123"'), `export SECRET="${R}"`);
+	});
+});
+
+describe("REQ-003 non-declaration contexts NOT redacted", () => {
+	test("git --author=Carlos not redacted", () => {
+		const s = "git log --author=Carlos";
+		assert.equal(redact(s), s);
+	});
+	test("JSON {\"name\": \"Carlos\"} not redacted", () => {
+		const s = '{"name": "Carlos", "version": "1.0"}';
+		assert.equal(redact(s), s);
+	});
+	test("func(arg=value, opt=2) not redacted", () => {
+		const s = "func(arg=value, opt=2)";
+		assert.equal(redact(s), s);
+	});
+	test("python -c \"print(1)\" not redacted", () => {
+		const s = 'python -c "print(1)"';
+		assert.equal(redact(s), s);
+	});
+	test("inline cmd --flag=val not redacted", () => {
+		const s = "curl --data=name=Carlos http://x";
+		// --data=name=Carlos : "name" preceded by =, not a declaration
+		assert.equal(redact(s), s);
+	});
 });
