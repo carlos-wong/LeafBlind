@@ -2,9 +2,98 @@
 
 > **Blinded by a leaf.** — 一叶障目，不见泰山。
 
-pi-agent 扩展：在所有 LLM API 请求发出前，用正则擦除 access token / 密码 / 私钥 / 环境变量值，保留变量名。
+A pi-agent extension that redacts access tokens, passwords, private keys, and
+environment variable values from all LLM API requests using deterministic regex
+matching — while preserving variable names.
 
-## 安装
+---
+
+- [English](#english)
+- [中文](#中文)
+
+---
+
+## English
+
+### Installation
+
+Add `extensionSources` in pi's `settings.json` pointing to this directory:
+
+```json
+{
+  "extensionSources": ["~/Projects/leafblind"]
+}
+```
+
+Or symlink/copy this directory to `~/.pi/agent/extensions/leafblind/` (pi
+auto-discovers `extensions/*/index.ts`).
+
+### Mechanism
+
+- Hooks the `context` event (model-agnostic, fires before every LLM call,
+  prior to `convertToLlm`).
+- `redact()` is a deterministic pure function: same input → same output,
+  fixed placeholder `[REDACTED]` — does not break prompt cache prefix.
+- **Syntax-driven, redact-all-values**: every environment-variable
+  declaration has its VALUE replaced with `[REDACTED]`; the variable name and
+  declaration keyword (`export`/`declare`/`set`/etc.) are preserved.
+  Sensitivity is NOT decided by the variable name.
+- Variable name preserved: `export VAR=sk-xxx` → `export VAR=[REDACTED]`.
+- Known token formats (AWS/OpenAI/GitHub/Slack/JWT/Bearer) and PEM private
+  key blocks are replaced in their entirety.
+- Command options (`--opt=val`), JSON keys, and function arguments
+  (`func(arg=val)`) are NOT declarations and are left untouched.
+- Multi-line PEM private key blocks are fully replaced.
+- Email / phone numbers / general PII are NOT matched.
+
+### Coverage
+
+#### Environment Variable Declaration Syntaxes (value redacted, name kept)
+
+| Syntax | Example |
+|--------|---------|
+| `export VAR=val` | `export PASS_ZTE=xxx` |
+| Bare `VAR=val` (line start / after `;` `&`) | `PASS_ZTE=xxx` |
+| `VAR: val` (YAML / colon) | `wifi_pass: xxx` |
+| `declare -x VAR=val` | `declare -x SECRET=xxx` |
+| `env VAR=val cmd` | `env API_KEY=xxx cmd` |
+| `set VAR=val` (Windows) | `set DB_PASS=xxx` |
+| `$env:VAR = "val"` (PowerShell) | `$env:TOKEN = "xxx"` |
+| `set -x VAR val` (fish) | `set -x MY_PWD xxx` |
+| `os.environ["VAR"] = "val"` (Python) | `os.environ["PSK"] = "xxx"` |
+
+#### Token Formats (whole match replaced)
+
+| Type | Pattern |
+|------|---------|
+| AWS access key | `***` |
+| OpenAI key | `***` |
+| GitHub token | `***` |
+| Slack token | `***` |
+| JWT | `***` |
+| Bearer token | `***` |
+| PEM private key block | `***` |
+
+### Performance
+
+1 MB text filtering ≤ 50 ms (measured: 8 ms with 50 secrets / 4 ms
+without secrets).
+
+### Testing
+
+```bash
+node --experimental-strip-types --test leafblind.test.mjs
+node --experimental-strip-types --test leafblind.integration.test.mjs
+```
+
+73 test cases, all using purely fictional placeholder values (marked
+`fake`/`test`). No real secrets.
+
+---
+
+## 中文
+
+### 安装
 
 在 pi 的 `settings.json` 加 `extensionSources` 指向本目录：
 
@@ -14,22 +103,27 @@ pi-agent 扩展：在所有 LLM API 请求发出前，用正则擦除 access tok
 }
 ```
 
-或把本目录 symlink/复制到 `~/.pi/agent/extensions/leafblind/`（pi 自动发现 `extensions/*/index.ts`）。
+或把本目录 symlink/复制到 `~/.pi/agent/extensions/leafblind/`（pi 自动发现
+`extensions/*/index.ts`）。
 
-## 机制
+### 机制
 
-- 拦截 `context` 事件（模型无关，每轮 LLM 调用前触发，位于 convertToLlm 之前）
-- `redact()` 是确定性纯函数：相同输入 → 相同输出，占位符固定 `[REDACTED]`，不破坏 prompt cache prefix
-- **语法驱动全擦**：凡环境变量声明，值一律替换为 `[REDACTED]`，保留变量名与 `export`/`declare`/`set` 等关键字（不靠变量名判断敏感性）
-- 保留变量名：`export VAR=sk-xxx` → `export VAR=[REDACTED]`；`export PASS_ZTE=FAKEpass0001` → `export PASS_ZTE=[REDACTED]`
-- 已知 token 格式（AWS/OpenAI/GitHub/Slack/JWT/Bearer）和 PEM 私钥整体替换
-- 命令参数（`--opt=val`）、JSON 键、函数参数（`func(arg=val)`）不属于声明，不擦
-- 多行 PEM 私钥整体替换
-- 邮箱 / 手机号 / 普通 PII 不命中
+- 拦截 `context` 事件（模型无关，每轮 LLM 调用前触发，位于
+  `convertToLlm` 之前）。
+- `redact()` 是确定性纯函数：相同输入 → 相同输出，占位符固定
+  `[REDACTED]`，不破坏 prompt cache prefix。
+- **语法驱动全擦**：凡环境变量声明，值一律替换为 `[REDACTED]`，保留变量
+  名与 `export`/`declare`/`set` 等关键字（不靠变量名判断敏感性）。
+- 保留变量名：`export VAR=sk-xxx` → `export VAR=[REDACTED]`。
+- 已知 token 格式（AWS/OpenAI/GitHub/Slack/JWT/Bearer）和 PEM 私钥整体替换。
+- 命令参数（`--opt=val`）、JSON 键、函数参数（`func(arg=val)`）不属于
+  声明，不擦。
+- 多行 PEM 私钥整体替换。
+- 邮箱 / 手机号 / 普通 PII 不命中。
 
-## 命中范围
+### 命中范围
 
-### 环境变量声明语法（值擦除，变量名保留）
+#### 环境变量声明语法（值擦除，变量名保留）
 
 | 语法 | 示例 |
 |------|------|
@@ -43,26 +137,27 @@ pi-agent 扩展：在所有 LLM API 请求发出前，用正则擦除 access tok
 | `set -x VAR val`（fish） | `set -x MY_PWD xxx` |
 | `os.environ["VAR"] = "val"`（Python） | `os.environ["PSK"] = "xxx"` |
 
-### Token 格式（整体替换）
+#### Token 格式（整体替换）
 
 | 类型 | 正则 |
 |------|------|
-| AWS access key | `AKIA[0-9A-Z]{16}` | <!-- pragma: allowlist secret -->
-| OpenAI key | `sk-[A-Za-z0-9]{20,}` | <!-- pragma: allowlist secret -->
-| GitHub token | `gh[oprsuca]_[A-Za-z0-9]{36,}` | <!-- pragma: allowlist secret -->
-| Slack token | `xox[baprs]-[0-9a-zA-Z-]{10,}` | <!-- pragma: allowlist secret -->
-| JWT | `eyJ...三段` | <!-- pragma: allowlist secret -->
-| Bearer token | `\bBearer\s+[A-Za-z0-9._-]{20,}\b` | <!-- pragma: allowlist secret -->
-| PEM 私钥块 | `-----BEGIN ... PRIVATE KEY----- ... -----END...` |
+| AWS access key | `***` |
+| OpenAI key | `***` |
+| GitHub token | `***` |
+| Slack token | `***` |
+| JWT | `***` |
+| Bearer token | `***` |
+| PEM 私钥块 | `***` |
 
-## 性能
+### 性能
 
 1MB 文本过滤 ≤ 50ms（实测 8ms 含 50 secret / 4ms 无 secret）。
 
-## 测试
+### 测试
 
 ```bash
 node --experimental-strip-types --test leafblind.test.mjs
+node --experimental-strip-types --test leafblind.integration.test.mjs
 ```
 
-60 条用例，全部使用纯虚构占位值（fake/test 标记），无真实 secret。
+73 条用例，全部使用纯虚构占位值（fake/test 标记），无真实 secret。
