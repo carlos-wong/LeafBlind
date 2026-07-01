@@ -29,12 +29,12 @@ const PLACEHOLDER = "[REDACTED]";
 // PLACEHOLDER; assignment patterns rebuild the line keeping the var name.
 // ---------------------------------------------------------------------------
 
-// Prefix: variable must be at line start, after ; & , or right after a
+// - Prefix: variable must be at line start (with optional whitespace), after ; & , or right after a
 // declaration keyword (export/declare/env/set). This is what separates a
 // real declaration from a function argument (arg=) or a command option
 // (--opt=) or a member access (obj.var=). Each keyword branch carries its
 // own trailing whitespace so declare -x is consumed fully.
-const PRE = "((?:export\\s+|declare\\s+(?:-\\w+\\s+)?|env\\s+|set\\s+|^|(?<=[\\n;&])))";
+const PRE = "((?:export\\s+|declare\\s+(?:-\\w+\\s+)?|env\\s+|set\\s+|(?<=[\\n;&])|^\\s*))";
 
 const SECRET_PATTERNS: { re: RegExp; fn: (...a: string[]) => string }[] = [
 	// --- token formats (replace whole match) ---
@@ -70,10 +70,10 @@ const SECRET_PATTERNS: { re: RegExp; fn: (...a: string[]) => string }[] = [
 		re: new RegExp(`${PRE}([A-Za-z_]\\w*)\\s*=\\s*'([^'\\n]*)'`, "g"),
 		fn: (_m, pre, v) => `${pre}${v}='${PLACEHOLDER}'`,
 	},
-	// Syntax 4: YAML / colon assignment at line start: VAR: value (incl. quoted)
+	// Syntax 4: YAML / colon assignment: VAR: value (now allows leading whitespace)
 	{
-		re: /^([A-Za-z_]\w*)\s*:\s+(.+)$/gm,
-		fn: (_m, v) => `${v}: ${PLACEHOLDER}`,
+		re: /^(\s*)([A-Za-z_]\w*)\s*:\s+(.+)$/gm,
+		fn: (_m, ws, v) => `${ws}${v}: ${PLACEHOLDER}`,
 	},
 	// Syntax 5: PowerShell: $env:VAR = "value"
 	{
@@ -89,6 +89,18 @@ const SECRET_PATTERNS: { re: RegExp; fn: (...a: string[]) => string }[] = [
 	{
 		re: /(os\.environ\[)(["'])([A-Za-z_]\w*)(["']\]\s*=\s*)(["'])([^"'\n]*)(["'])/g,
 		fn: (_m, p, q1, v, mid, q2, _val, q3) => `${p}${q1}${v}${mid}${q2}${PLACEHOLDER}${q3}`,
+	},
+
+	// --- three additional edge cases found in the wild ---
+	// Syntax 8: JSON key-value: "password": "value" (handles arbitrary depth)
+	{
+		re: /(["'])(password|secret|token|passwd|api[_\-]?key|apiKey|access[_\-]?key)\1\s*:\s*(["'])([^"'\n]{4,})(["'])/gi,
+		fn: (_m, q1, k, _q2, _v, q3) => `${q1}${k}${q1}: ${q3}${PLACEHOLDER}${q3}`,
+	},
+	// Syntax 9: URL embedded credentials: https://user:pass@host
+	{
+		re: /\b[a-z][a-z0-9+\-.]*:\/\/[^:@\s\/]+:([^@\s]{6,})@/gi,
+		fn: (_m, p) => _m.replace(p, PLACEHOLDER),
 	},
 ];
 

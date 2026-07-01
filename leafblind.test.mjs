@@ -254,6 +254,47 @@ describe("special characters in env var values", () => {
 	});
 });
 
+describe("edge cases found in the wild (indented YAML, JSON, URL credentials)", () => {
+	// Syntax 8: indented env-var declarations (leading whitespace)
+	test("indented YAML password: val with 6 spaces", () => {
+		assert.equal(redact('      password: "uk7_mYRu5nozx2cWZrZIVNpb"'), `      password: ${R}`); // pragma: allowlist secret
+	});
+	test("indented bare VAR=val", () => {
+		assert.equal(redact("  PASS=mypassword"), `  PASS=${R}`); // pragma: allowlist secret
+	});
+	test("indented export VAR=val", () => {
+		assert.equal(redact("  export TOKEN=abc123xyz"), `  export TOKEN=${R}`); // pragma: allowlist secret
+	});
+	test("indented double-quoted VAR", () => {
+		assert.equal(redact('  export SECRET="fakepw123456"'), `  export SECRET="${R}"`); // pragma: allowlist secret
+	});
+	// Syntax 8: JSON key-value (handles arbitrary depth, quotes preserved)
+	test("JSON password key", () => {
+		assert.equal(redact('"password": "mysecret123"'), `"password": "${R}"`); // pragma: allowlist secret
+	});
+	test("JSON apiKey with sk- token", () => {
+		assert.equal(redact('"apiKey": "sk-testfake123456789012345"'), `"apiKey": "${R}"`); // pragma: allowlist secret
+	});
+	test("JSON single-quoted key", () => {
+		assert.equal(redact("'secret': 'myvalue1234'"), `'secret': '${R}'`); // pragma: allowlist secret
+	});
+	// Syntax 9: URL embedded credentials
+	test("URL credentials in https", () => {
+		const out = redact("https://admin:fakepass123@example.com/api");
+		assert.ok(!out.includes("fakepass123"), "password gone");
+		assert.ok(out.includes(R), "placeholder present");
+	});
+	test("URL credentials in config value", () => {
+		const out = redact("url: https://user:fakepass123@db.host:5432/db");
+		assert.ok(!out.includes("fakepass123"), "password gone");
+		assert.ok(out.includes(R), "placeholder present");
+	});
+	test("URL with short password not caught (under 6 chars)", () => {
+		const s = "https://user:ab@host.com";
+		assert.equal(redact(s), s, "short password should not match");
+	});
+});
+
 describe("e2e: experiment prompts (pi -p -e ...)", () => {
 	// These are the exact prompts used in the live pi-agent experiment.
 	// The redact() output matches what the LLM actually received (confirmed
